@@ -1,0 +1,134 @@
+{
+  "Comment": "Step Functions State Machine for Processing Samples with Workflow Status Check and QC Workflow",
+  "StartAt": "ProcessSamples",
+  "States": {
+    "ProcessSamples": {
+      "Type": "Map",
+      "ItemsPath": "$.samples",
+      "MaxConcurrency": 10,
+      "Iterator": {
+        "StartAt": "CarisPoCStartSampleWorkflow",
+        "States": {
+          "CarisPoCStartSampleWorkflow": {
+            "InputPath": "$",
+            "Next": "CarisPoCWaitForSampleStatusCheck",
+            "Parameters": {
+              "FunctionName": "arn:aws:lambda:us-west-2:210616359528:function:CarisPoCStartSampleWorkflow",
+              "Payload": {
+                "sample_name.$": "$.sample_name",
+                "fasta_path.$": "$.reference_s3",
+                "JobRoleArn": "arn:aws:iam::210616359528:role/carispocrole",
+                "OutputS3Path.$": "$.WorkflowOutputS3Path",
+                "sampleworkflowid": "1830181"
+              }
+            },
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "ResultSelector": {
+              "sampleworkflow.$": "$.Payload"
+            },
+            "ResultPath": "$.sampleworkflow",
+            "Type": "Task"
+          },
+          "CarisPoCWaitForSampleStatusCheck": {
+            "Type": "Wait",
+            "Seconds": 120,
+            "Next": "CarisPoCCheckSampleWorkflowStatus"
+          },
+          "CarisPoCCheckSampleWorkflowStatus": {
+            "Type": "Task",
+            "InputPath": "$",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "ResultPath": "$.sampleworkflow.sampleworkflow.status.message",
+            "Next": "CarisPoCSampleWorkflowDone?",
+            "Parameters": {
+              "FunctionName": "arn:aws:lambda:us-west-2:210616359528:function:CarisPoCCheckSampleWorkflowStatus",
+              "Payload": {
+                "task_type": "GetRun",
+                "task_params": {
+                  "id.$": "$.sampleworkflow.sampleworkflow.WorkflowRunId"
+                }
+              }
+            }
+          },
+          "CarisPoCSampleWorkflowDone?": {
+            "Choices": [
+              {
+                "Next": "CarisPoCSampleWorkflowCompleted",
+                "StringEquals": "COMPLETED",
+                "Variable": "$.sampleworkflow.sampleworkflow.status.message.Payload.task_status"
+              },
+              {
+                "Next": "CarisPoCSampleWorkflowCompleted",
+                "StringEquals": "FAILED",
+                "Variable": "$.sampleworkflow.sampleworkflow.status.message.Payload.task_status"
+              }
+            ],
+            "Default": "CarisPoCWaitForSampleStatusCheck",
+            "Type": "Choice"
+          },
+          "CarisPoCSampleWorkflowCompleted": {
+            "End": true,
+            "Type": "Pass"
+          }
+        }
+      },
+      "Next": "CarisPoCInvokeQCWorkflow"
+    },
+    "CarisPoCInvokeQCWorkflow": {
+      "Next": "CarisPoCWaitForQCStatusCheck",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-west-2:210616359528:function:CarisPoCInvokeQCWorkflow",
+        "Payload": {
+          "fasta_path": "s3://carispocsampleworkflowinput/qc.fasta",
+          "qcworkflowid": "1830181",
+          "JobRoleArn": "arn:aws:iam::210616359528:role/carispocrole",
+          "qcOutputS3Path": "s3://carispocsampleworkflowoutput/"
+        }
+      },
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Type": "Task"
+    },
+    "CarisPoCWaitForQCStatusCheck": {
+      "Type": "Wait",
+      "Seconds": 120,
+      "Next": "CarisPoCCheckQCWorkflowStatus"
+    },
+    "CarisPoCCheckQCWorkflowStatus": {
+      "Type": "Task",
+      "InputPath": "$",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "ResultPath": "$.Payload",
+      "Next": "CarisPoCQCWorkflowDone?",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-west-2:210616359528:function:CarisPoCCheckQCWorkflowStatus",
+        "Payload": {
+          "task_type": "GetRun",
+          "task_params": {
+            "id.$": "$.WorkflowRunId"
+          }
+        }
+      }
+    },
+    "CarisPoCQCWorkflowDone?": {
+      "Choices": [
+        {
+          "Next": "CarisPoCQCWorkflowCompleted",
+          "StringEquals": "COMPLETED",
+          "Variable": "$.Payload.Payload"
+        },
+        {
+          "Next": "CarisPoCQCWorkflowCompleted",
+          "StringEquals": "FAILED",
+          "Variable": "$.Payload.Payload"
+        }
+      ],
+      "Default": "CarisPoCWaitForQCStatusCheck",
+      "Type": "Choice"
+    },
+    "CarisPoCQCWorkflowCompleted": {
+      "End": true,
+      "Type": "Pass"
+    }
+  }
+}

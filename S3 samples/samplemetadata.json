@@ -1,0 +1,11 @@
+{
+  "flowcellid": "32",
+  "qcWorkflowOutputS3Path": "s3://carispocsampleworkflowoutput/",
+  "qc_reference_s3": "s3://carispocsampleworkflowinput/qc.fasta",
+  "samples": [
+    {"sample_name": "sample7", "reference_s3": "s3://carispocsampleworkflowinput/sample7.fasta", "WorkflowOutputS3Path": "s3://carispocsampleworkflowoutput/"},
+	{"sample_name": "sample8", "reference_s3": "s3://carispocsampleworkflowinput/sample8.fasta", "WorkflowOutputS3Path": "s3://carispocsampleworkflowoutput/"},
+	{"sample_name": "sample9", "reference_s3": "s3://carispocsampleworkflowinput/sample9.fasta", "WorkflowOutputS3Path": "s3://carispocsampleworkflowoutput/"},
+	{"sample_name": "sample10", "reference_s3": "s3://carispocsampleworkflowinput/sample10.fasta", "WorkflowOutputS3Path": "s3://carispocsampleworkflowoutput/"}
+  ]
+}
